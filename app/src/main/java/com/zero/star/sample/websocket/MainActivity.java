@@ -4,7 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.NotYetConnectedException;
 
-import org.java_websocket.WebSocketClient;
+import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
 import android.app.Activity;
@@ -20,17 +20,46 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
 
     private static final String TAG = "MainActivity";
+    public static final int ONOPEN = 1;
+    public static final int ONCLOSE = 0;
 
-    private Handler mHandler;
+    private Handler mHandler1;
+    private Handler mHandler2;
+
 
     private WebSocketClient mClient;
+
+    private int state = ONCLOSE;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        mHandler = new Handler();
+        mHandler1 =  new Handler() {
+
+        };
+        connectWebSocket();
+
+        // 送信ボタン
+        Button button = (Button) findViewById(R.id.btn);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                EditText edit = (EditText) findViewById(R.id.edit);
+                try {
+                    // 送信
+                    if(state == ONOPEN) mClient.send(edit.getText().toString());
+                } catch (NotYetConnectedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    private void connectWebSocket(){
+
+        mHandler2 = new Handler();
 
         if ("sdk".equals(Build.PRODUCT)) {
             // エミュレータの場合はIPv6を無効
@@ -40,19 +69,20 @@ public class MainActivity extends Activity {
 
         try {
 
-            URI uri = new URI("ws://10.0.2.2:3333");
+            URI uri = new URI("ws://192.168.0.78:3333");
 
             mClient = new WebSocketClient(uri) {
                 @Override
                 public void onOpen(ServerHandshake handshake) {
                     Log.d(TAG, "onOpen");
+                    state = ONOPEN;
                 }
 
                 @Override
                 public void onMessage(final String message) {
                     Log.d(TAG, "onMessage");
                     Log.d(TAG, "Message:" + message);
-                    mHandler.post(new Runnable() {
+                    mHandler2.post(new Runnable() {
                         @Override
                         public void run() {
                             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
@@ -69,31 +99,12 @@ public class MainActivity extends Activity {
                 @Override
                 public void onClose(int code, String reason, boolean remote) {
                     Log.d(TAG, "onClose");
+                    state = ONCLOSE;
                 }
             };
-            
             mClient.connect();
-
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-
-        // 送信ボタン
-        Button button = (Button) findViewById(R.id.btn);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                EditText edit = (EditText) findViewById(R.id.edit);
-                try {
-                    // 送信
-                    mClient.send(edit.getText().toString());
-                } catch (NotYetConnectedException e) {
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-
     }
 }
